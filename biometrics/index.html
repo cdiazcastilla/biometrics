@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Control de Asistencia</title>
+  <meta name="description" content="Dashboard de asistencia, horarios, horas extras y puntualidad para las sedes Prado, Boston y Kids.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232a78d6'/%3E%3Cpath d='M9 17l4 4 10-10' stroke='white' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/styles.css">
+  <script>
+    try { var t = localStorage.getItem('asis.theme'); if (t) document.documentElement.setAttribute('data-theme', t); } catch (e) {}
+  </script>
+</head>
+<body>
+<div class="app">
+  <!-- ============ SIDEBAR ============ -->
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <div class="brand-mark"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
+      <div>
+        <div class="brand-title">Control de Asistencia</div>
+        <div class="brand-sub">Prado · Boston · Kids</div>
+      </div>
+    </div>
+    <nav class="nav" id="nav">
+      <a data-view="resumen" class="active"><i data-icon="grid"></i>Resumen</a>
+      <a data-view="asistencia"><i data-icon="calendar"></i>Asistencia diaria</a>
+      <a data-view="personas"><i data-icon="users"></i>Personas</a>
+      <a data-view="extras"><i data-icon="clock"></i>Horas extras</a>
+      <a data-view="puntualidad"><i data-icon="alarm"></i>Puntualidad</a>
+      <a data-view="novedades"><i data-icon="alert"></i>Novedades</a>
+      <div class="nav-sep"></div>
+      <a data-view="reportes"><i data-icon="file"></i>Reportes</a>
+      <a data-view="cargar"><i data-icon="upload"></i>Cargar datos</a>
+      <a data-view="config"><i data-icon="settings"></i>Configuración</a>
+    </nav>
+    <div class="sidebar-foot">
+      <div class="data-badge" id="dataBadge">Sin datos</div>
+      <button class="btn ghost sm" id="themeBtn" title="Cambiar tema"><i data-icon="moon"></i><span>Tema</span></button>
+    </div>
+  </aside>
+
+  <!-- ============ MAIN ============ -->
+  <main class="main">
+    <header class="topbar">
+      <button class="btn ghost icon-only menu-btn" id="menuBtn" aria-label="Menú"><i data-icon="menu"></i></button>
+      <div class="topbar-title">
+        <h1 id="viewTitle">Resumen</h1>
+        <div class="muted small" id="viewSub">Vista general de la asistencia</div>
+      </div>
+      <div class="topbar-actions">
+        <button class="btn" id="quickExcel"><i data-icon="sheet"></i><span>Excel</span></button>
+        <button class="btn primary" id="quickPdf"><i data-icon="download"></i><span>Reporte PDF</span></button>
+      </div>
+    </header>
+
+    <!-- Filters -->
+    <section class="filters" id="filters">
+      <div class="seg" id="sedeSeg" role="tablist" aria-label="Sede">
+        <button data-sede="all" class="on">Todas</button>
+        <button data-sede="prado"><span class="dot s-prado"></span>Prado</button>
+        <button data-sede="boston"><span class="dot s-boston"></span>Boston</button>
+        <button data-sede="kids"><span class="dot s-kids"></span>Kids</button>
+      </div>
+      <div class="seg" id="rangeSeg" aria-label="Periodo">
+        <button data-range="7d">7 días</button>
+        <button data-range="30d">30 días</button>
+        <button data-range="month" class="on">Este mes</button>
+        <button data-range="prev">Mes anterior</button>
+        <button data-range="all">Todo</button>
+      </div>
+      <div class="date-range">
+        <input type="date" id="fromDate" aria-label="Desde">
+        <span class="muted">→</span>
+        <input type="date" id="toDate" aria-label="Hasta">
+      </div>
+      <select id="deptSel" aria-label="Área"><option value="">Todas las áreas</option></select>
+      <div class="search">
+        <i data-icon="search"></i>
+        <input type="search" id="personSearch" placeholder="Buscar persona o ID…">
+      </div>
+    </section>
+
+    <div class="content" id="content">
+      <!-- RESUMEN -->
+      <section class="view active" id="view-resumen">
+        <div class="kpis" id="kpis"></div>
+        <div class="grid g-2-1">
+          <div class="card">
+            <div class="card-head"><div><h3>Personas presentes por día</h3><p class="muted small">Personas con al menos una marcación</p></div><div class="legend" id="lgTrend"></div></div>
+            <div class="chart-box h-280"><canvas id="chTrend"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><div><h3>Estado de las jornadas</h3><p class="muted small">Distribución en el periodo</p></div></div>
+            <div class="chart-box h-280"><canvas id="chStatus"></canvas></div>
+          </div>
+        </div>
+        <div class="grid g-1-1">
+          <div class="card">
+            <div class="card-head"><div><h3>Hora de llegada</h3><p class="muted small">Primera marcación del día, en bloques de 15 min</p></div><div class="legend" id="lgArrival"></div></div>
+            <div class="chart-box h-260"><canvas id="chArrival"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><div><h3>Mapa de marcaciones</h3><p class="muted small">Concentración por día de la semana y hora</p></div></div>
+            <div class="heatmap" id="heatmap"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div><h3>Comparativo por sede</h3><p class="muted small">Indicadores clave del periodo seleccionado</p></div></div>
+          <div class="table-wrap"><table class="tbl" id="tblSedes"></table></div>
+        </div>
+      </section>
+
+      <!-- ASISTENCIA -->
+      <section class="view" id="view-asistencia">
+        <div class="card">
+          <div class="card-head">
+            <div><h3>Jornadas registradas</h3><p class="muted small" id="asisCount"></p></div>
+            <div class="row gap">
+              <select id="asisStatus"><option value="">Todos los estados</option></select>
+              <button class="btn sm" data-export="asistencia"><i data-icon="sheet"></i>Exportar</button>
+            </div>
+          </div>
+          <div class="table-wrap"><table class="tbl sortable" id="tblAsis"></table></div>
+          <div class="pager" id="pgAsis"></div>
+        </div>
+      </section>
+
+      <!-- PERSONAS -->
+      <section class="view" id="view-personas">
+        <div class="card">
+          <div class="card-head">
+            <div><h3>Personas</h3><p class="muted small">Haz clic en una persona para ver su detalle y descargar su reporte individual</p></div>
+            <button class="btn sm" data-export="personas"><i data-icon="sheet"></i>Exportar</button>
+          </div>
+          <div class="table-wrap"><table class="tbl sortable clickable" id="tblPersonas"></table></div>
+          <div class="pager" id="pgPersonas"></div>
+        </div>
+      </section>
+
+      <!-- EXTRAS -->
+      <section class="view" id="view-extras">
+        <div class="kpis" id="kpisExtras"></div>
+        <div class="grid g-2-1">
+          <div class="card">
+            <div class="card-head"><div><h3>Horas extras por semana</h3><p class="muted small">Tiempo trabajado después de la hora de salida y en días no laborales</p></div><div class="legend" id="lgExtrasWeek"></div></div>
+            <div class="chart-box h-280"><canvas id="chExtrasWeek"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><div><h3>Por área</h3><p class="muted small">Horas extras acumuladas</p></div></div>
+            <div class="chart-box h-280"><canvas id="chExtrasDept"></canvas></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div><h3>Ranking de horas extras</h3></div><button class="btn sm" data-export="extras"><i data-icon="sheet"></i>Exportar</button></div>
+          <div class="table-wrap"><table class="tbl sortable clickable" id="tblExtras"></table></div>
+        </div>
+      </section>
+
+      <!-- PUNTUALIDAD -->
+      <section class="view" id="view-puntualidad">
+        <div class="kpis" id="kpisPunt"></div>
+        <div class="grid g-1-1">
+          <div class="card">
+            <div class="card-head"><div><h3>Hora promedio de llegada</h3><p class="muted small">Por día y sede</p></div><div class="legend" id="lgAvgArr"></div></div>
+            <div class="chart-box h-260"><canvas id="chAvgArrival"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><div><h3>Llegadas tarde por día de la semana</h3><p class="muted small">Número de jornadas con tardanza</p></div><div class="legend" id="lgLateWd"></div></div>
+            <div class="chart-box h-260"><canvas id="chLateWeekday"></canvas></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div><h3>Ranking de tardanzas</h3></div><button class="btn sm" data-export="tardanzas"><i data-icon="sheet"></i>Exportar</button></div>
+          <div class="table-wrap"><table class="tbl sortable clickable" id="tblTardanzas"></table></div>
+        </div>
+      </section>
+
+      <!-- NOVEDADES -->
+      <section class="view" id="view-novedades">
+        <div class="grid g-1-1">
+          <div class="card">
+            <div class="card-head"><div><h3>Marcaciones incompletas</h3><p class="muted small">Días con una sola marcación (falta entrada o salida)</p></div><button class="btn sm" data-export="incompletas"><i data-icon="sheet"></i>Exportar</button></div>
+            <div class="table-wrap tall"><table class="tbl sortable" id="tblIncompletas"></table></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><div><h3>Ausencias</h3><p class="muted small">Días laborales sin marcación</p></div><button class="btn sm" data-export="ausencias"><i data-icon="sheet"></i>Exportar</button></div>
+            <div class="table-wrap tall"><table class="tbl sortable" id="tblAusencias"></table></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div><h3>Salidas anticipadas</h3><p class="muted small">Última marcación antes de la hora de salida</p></div><button class="btn sm" data-export="salidas"><i data-icon="sheet"></i>Exportar</button></div>
+          <div class="table-wrap tall"><table class="tbl sortable" id="tblSalidas"></table></div>
+        </div>
+      </section>
+
+      <!-- REPORTES -->
+      <section class="view" id="view-reportes">
+        <p class="muted lead">Los reportes usan los filtros actuales (sede, periodo, área y búsqueda). Ajusta los filtros arriba y descarga.</p>
+        <div class="report-grid" id="reportGrid"></div>
+      </section>
+
+      <!-- CARGAR -->
+      <section class="view" id="view-cargar">
+        <div class="grid g-2-1">
+          <div class="card">
+            <div class="card-head"><div><h3>Importar registros</h3><p class="muted small">Exporta los eventos desde iVMS-4200 (Excel o CSV) y arrástralos aquí</p></div></div>
+            <label class="dropzone" id="dropzone">
+              <input type="file" id="fileInput" multiple accept=".csv,.xlsx,.xls,.txt">
+              <div class="dz-icon"><i data-icon="upload"></i></div>
+              <div class="dz-title">Arrastra archivos aquí o haz clic para seleccionar</div>
+              <div class="muted small">.xlsx · .xls · .csv — puedes cargar varios a la vez, uno por sede</div>
+            </label>
+            <div id="pending"></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><div><h3>¿Cómo exportar desde iVMS-4200?</h3></div></div>
+            <ol class="steps">
+              <li>Abre <b>iVMS-4200</b> → <b>Control de acceso</b> (o <b>Tiempo y asistencia</b>).</li>
+              <li>Entra a <b>Búsqueda / Registros de eventos</b> (Access Control Event) o <b>Registros originales</b> de asistencia.</li>
+              <li>Selecciona el dispositivo de la sede y el rango de fechas, y pulsa <b>Buscar</b>.</li>
+              <li>Pulsa <b>Exportar</b> y elige Excel o CSV.</li>
+              <li>Carga el archivo aquí y elige la sede. Si el nombre del archivo o del dispositivo contiene <i>prado</i>, <i>boston</i> o <i>kids</i>, se detecta solo.</li>
+            </ol>
+            <p class="muted small">Puedes volver a cargar periodos que se crucen: las marcaciones repetidas se descartan automáticamente.</p>
+            <p class="muted small">¿Prefieres automatizarlo? En la carpeta <code>tools/</code> hay un script que descarga los eventos directamente del equipo (API ISAPI de Hikvision) y genera un CSV listo para cargar.</p>
+            <div class="row gap wrap mt">
+              <button class="btn" id="demoBtn"><i data-icon="sparkle"></i>Cargar datos de demostración</button>
+              <a class="btn ghost" href="samples/plantilla_marcaciones.csv" download><i data-icon="download"></i>Plantilla CSV</a>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head">
+            <div><h3>Archivos cargados</h3><p class="muted small" id="filesSummary"></p></div>
+            <button class="btn danger sm" id="clearAll"><i data-icon="trash"></i>Borrar todo</button>
+          </div>
+          <div class="table-wrap"><table class="tbl" id="tblFiles"></table></div>
+        </div>
+      </section>
+
+      <!-- CONFIG -->
+      <section class="view" id="view-config">
+        <div class="cfg-sedes" id="cfgSedes"></div>
+        <div class="grid g-1-1">
+          <div class="card">
+            <div class="card-head"><div><h3>Reglas de cálculo</h3></div></div>
+            <div class="form" id="cfgRules"></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><div><h3>Festivos y días sin labor</h3><p class="muted small">Una fecha por línea (AAAA-MM-DD). No cuentan como ausencia y lo trabajado cuenta como extra.</p></div></div>
+            <textarea id="cfgHolidays" rows="10" placeholder="2026-12-08&#10;2026-12-25"></textarea>
+            <div class="row gap mt"><button class="btn sm" id="addCoHolidays">Agregar festivos de Colombia</button></div>
+          </div>
+        </div>
+        <div class="row gap end"><button class="btn" id="cfgReset">Restaurar valores</button><button class="btn primary" id="cfgSave"><i data-icon="check"></i>Guardar y recalcular</button></div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<!-- Person drawer -->
+<div class="drawer-backdrop" id="drawerBackdrop"></div>
+<aside class="drawer" id="drawer" aria-hidden="true">
+  <div class="drawer-head">
+    <div>
+      <div class="muted small" id="dwSede"></div>
+      <h2 id="dwName"></h2>
+      <div class="muted small" id="dwMeta"></div>
+    </div>
+    <button class="btn ghost icon-only" id="dwClose" aria-label="Cerrar"><i data-icon="x"></i></button>
+  </div>
+  <div class="drawer-body">
+    <div class="kpis mini" id="dwKpis"></div>
+    <div class="card flat">
+      <div class="card-head"><div><h3>Entrada y salida</h3><p class="muted small">Primera y última marcación de cada día</p></div><div class="legend" id="lgDw"></div></div>
+      <div class="chart-box h-220"><canvas id="chPerson"></canvas></div>
+    </div>
+    <div class="card flat">
+      <div class="card-head"><div><h3>Calendario</h3></div></div>
+      <div class="cal" id="dwCal"></div>
+    </div>
+    <div class="card flat">
+      <div class="card-head"><div><h3>Detalle de jornadas</h3></div></div>
+      <div class="table-wrap"><table class="tbl" id="dwTable"></table></div>
+    </div>
+  </div>
+  <div class="drawer-foot">
+    <button class="btn" id="dwExcel"><i data-icon="sheet"></i>Excel</button>
+    <button class="btn primary" id="dwPdf"><i data-icon="download"></i>Reporte individual PDF</button>
+  </div>
+</aside>
+
+<div class="tooltip" id="tooltip"></div>
+<div class="toasts" id="toasts"></div>
+<div class="loading" id="loading"><div class="spinner"></div><div id="loadingText">Procesando…</div></div>
+
+<script src="assets/vendor/chart.umd.min.js"></script>
+<script src="assets/vendor/xlsx.full.min.js"></script>
+<script src="assets/vendor/jspdf.umd.min.js"></script>
+<script src="assets/vendor/jspdf.plugin.autotable.min.js"></script>
+<script src="assets/js/util.js"></script>
+<script src="assets/js/store.js"></script>
+<script src="assets/js/parser.js"></script>
+<script src="assets/js/engine.js"></script>
+<script src="assets/js/demo.js"></script>
+<script src="assets/js/charts.js"></script>
+<script src="assets/js/reports.js"></script>
+<script src="assets/js/app.js"></script>
+</body>
+</html>
